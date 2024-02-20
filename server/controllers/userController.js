@@ -143,3 +143,55 @@ export const loggedUser = async (req, res) => {
     res.send('erro occured while fetching data' ,  error)
   }
 }
+
+// send password reset  email 
+export const sendResetPasswordEmail = async (req , res) =>{
+  const {email} = req.body
+  if(email){
+    const isEmailExist = await User.findOne({email:email})
+    if(isEmailExist){
+const secret = isEmailExist.user_id + process.env.JWT_SECRET_KEY
+const token =  Jwt.sign({userId : isEmailExist._id },secret,{expiresIn:'15m'})
+const link = `https://127.0.0.1:3000/api/user/reset/${isEmailExist._id}/${token}`;
+console.log(link);
+    }else{
+      res.send({
+        status: "failed",
+        message: "Email is not register",
+      });
+    }
+  }else{
+    res.send({
+      status: "failed",
+      message: "email field are required",
+    });
+  }
+}
+
+//  update reset password
+export const updateAndResetPassword = async(req , res)=>{
+  const {password , password_confirmation}  = req.body;
+  const {token , id } = req.params
+  const isUserExist = await User.findById(id)
+  const new_Secret = isUserExist.user_id + process.env.JWT_SECRET_KEY
+  try {
+    Jwt.verify(token , new_Secret)
+    if(password , password_confirmation){
+        const salt = await bcrypt.genSalt(10)
+        const newHashPassword = await bcrypt.hash(password , salt)
+
+        await User.findByIdAndUpdate(isUserExist._id , {$set:{password:newHashPassword }})
+        res.send({ "status": "success", "message": "Password Reset Successfully" })
+    }else{
+      res.send({
+        status: "failed",
+        message: "All field are required",
+      });
+  
+    }
+    
+  } catch (error) {
+  
+    res.send({ "status": "failed", "message": "Invalid Token", error:error })
+  }
+}
